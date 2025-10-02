@@ -1,54 +1,75 @@
-const path = require('path');
-const fs = require('fs-extra');
-const { getDb } = require('./database');
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
+import fs from 'fs-extra';
+import { getDb } from './database.js';
 
-const webBuildPath = path.resolve(__dirname, '../../web/dist');
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+const webBuildPath = path.join(__dirname, 'dist');
+const defaultLoggers = {
+  log: console.log.bind(console),
+  warn: console.warn.bind(console),
+  error: console.error.bind(console),
+};
+
+const toPosix = (value) => value.replace(/\\/g, '/');
 
 /**
  * Generates the static HTML, CSS, JS, and data files for the gallery.
  * @param {string} exportRoot - The root directory of the exported content.
  * @param {number} paginate - Number of items per page.
+ * @param {{log?: Function, warn?: Function, error?: Function}} logger - Optional logger functions.
  */
-async function buildSite(exportRoot, paginate) {
-  console.log('Building static site...');
+export async function buildSite(exportRoot, paginate, logger = {}) {
+  const { log, error } = { ...defaultLoggers, ...logger };
+  log('Building static site...');
 
   const sitePath = path.join(exportRoot, 'site');
   const db = getDb(exportRoot);
 
   // 1. Clear previous site build and copy new React app assets
-  console.log('Copying React build assets...');
+  log('Copying React build assets...');
   await fs.emptyDir(sitePath);
   if (!(await fs.pathExists(webBuildPath))) {
-    throw new Error(`React build not found at ${webBuildPath}. Please run 'npm run build:web' first.`);
+    const message = `React build not found at ${webBuildPath}. Please run 'npm run build:web' first.`;
+    error(message);
+    throw new Error(message);
   }
   await fs.copy(webBuildPath, sitePath);
 
   // 2. Generate data.json from the database
-  console.log('Generating data.json...');
+  log('Generating data.json...');
   const images = db.prepare('SELECT * FROM images ORDER BY captureDate DESC').all();
   const data = {
-    images: images.map(img => ({
-      ...img,
-      // Relative paths for the client
-      src: path.join('..', img.destPath),
-      thumbSrc: path.join('..', 'thumbs', img.destPath).replace(/\.\w+$/, '.webp'),
-      thumbSrc_fallback: path.join('..', 'thumbs', img.destPath).replace(/\.\w+$/, '.jpeg'),
-    })),
+    images: images.map((img) => {
+      const destPathPosix = toPosix(img.destPath);
+      const originalSrc = `../${destPathPosix}`;
+      const thumbBase = `../thumbs/${destPathPosix}`;
+
+      return {
+        ...img,
+        destPath: destPathPosix,
+        // Relative paths for the client
+        src: originalSrc,
+        thumbSrc: thumbBase.replace(/\.\w+$/, '.webp'),
+        thumbSrc_fallback: thumbBase.replace(/\.\w+$/, '.jpeg'),
+      };
+    }),
     settings: {
       paginate,
     },
   };
-  await fs.writeJson(path.join(sitePath, 'data.json'), data);
+  await fs.writeJson(path.join(sitePath, 'data.json'), data, { spaces: 2 });
 
   // 3. Generate sitemap.xml
-  console.log('Generating sitemap.xml...');
+  log('Generating sitemap.xml...');
   await generateSitemap(exportRoot, data.images, paginate);
 
   // 4. Generate robots.txt
-  console.log('Generating robots.txt...');
+  log('Generating robots.txt...');
   await generateRobotsTxt(exportRoot);
 
-  console.log('Static site build finished successfully.');
+  log('Static site build finished successfully.');
 }
 
 /**
@@ -67,12 +88,12 @@ async function generateSitemap(exportRoot, images, paginate) {
 
   // Month pages
   const months = new Set();
-  images.forEach(img => {
+  images.forEach((img) => {
     months.add(`${img.year}/${String(img.month).padStart(2, '0')}`);
   });
 
   for (const month of months) {
-    const monthImages = images.filter(img => `${img.year}/${String(img.month).padStart(2, '0')}` === month);
+    const monthImages = images.filter((img) => `${img.year}/${String(img.month).padStart(2, '0')}` === month);
     const pageCount = Math.ceil(monthImages.length / paginate);
 
     // First page of the month
@@ -102,5 +123,3 @@ Sitemap: ${siteUrl}/sitemap.xml
 `;
   await fs.writeFile(path.join(exportRoot, 'site', 'robots.txt'), content);
 }
-
-module.exports = { buildSite };

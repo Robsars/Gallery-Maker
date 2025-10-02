@@ -1,24 +1,24 @@
-const path = require('path');
-const fs = require('fs-extra');
-const Database = require('better-sqlite3');
+import path from 'node:path';
+import fs from 'fs-extra';
+import Database from 'better-sqlite3';
 
-let db;
+const dbCache = new Map();
 
 /**
  * Initializes and returns the SQLite database instance for a given export root.
  * @param {string} exportRoot - The root directory for the export.
  * @returns {Database.Database} The database instance.
  */
-function getDb(exportRoot) {
-  if (db) {
-    return db;
+export function getDb(exportRoot) {
+  if (dbCache.has(exportRoot)) {
+    return dbCache.get(exportRoot);
   }
 
   const dbDir = path.join(exportRoot, '.meta');
   fs.ensureDirSync(dbDir);
   const dbPath = path.join(dbDir, 'gallery.db');
-  
-  db = new Database(dbPath);
+
+  const db = new Database(dbPath);
 
   // Create schema if it doesn't exist
   db.exec(`
@@ -34,7 +34,6 @@ function getDb(exportRoot) {
     )
   `);
 
+  dbCache.set(exportRoot, db);
   return db;
 }
-
-module.exports = { getDb };

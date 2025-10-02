@@ -12,7 +12,7 @@ echo Checking for Node.js...
 where node >nul 2>nul
 if %errorlevel% neq 0 (
     echo ERROR: Node.js is not found in your system's PATH.
-    echo Please install Node.js (v18 or higher is recommended) and try again.
+    echo Please install Node.js ^(v18 or higher is recommended^) and try again.
     pause
     exit /b 1
 )
@@ -23,9 +23,8 @@ echo Checking for existing dependencies...
 if exist "node_modules" (
     echo Dependencies found in 'node_modules'. Skipping installation.
 ) else (
-    echo Dependencies not found. Installing now using 'npm run install-all'...
-    REM The 'install-all' script from your package.json handles root and workspace installs.
-    call npm run install-all
+    echo Dependencies not found. Installing now using 'npm install'...
+    call npm install
     if %errorlevel% neq 0 (
         echo ERROR: Dependency installation failed. Please check the output above for errors.
         pause
@@ -48,8 +47,9 @@ if %errorlevel% neq 0 (
 )
 echo.
 REM --- Step 4: Start the application ---
-echo Starting the development server and web app...
-REM This runs the "dev" script from your root package.json
+echo Starting the pipeline API and control center...
+REM This launches both the API (http://localhost:3001) and the dashboard (http://localhost:5173)
 call npm run dev
 
+echo.
 pause

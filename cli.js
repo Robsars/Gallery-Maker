@@ -1,10 +1,11 @@
 #!/usr/bin/env node
 
-const { Command } = require('commander');
-const path = require('path');
-const { ingest } = require('./server/src/ingest');
-const { buildSite } = require('./server/src/build');
-const { exportZip } = require('./server/src/export');
+import { Command } from 'commander';
+import path from 'node:path';
+import process from 'node:process';
+import { ingest } from './ingest.js';
+import { buildSite } from './build.js';
+import { exportZip } from './export.js';
 
 const program = new Command();
 
@@ -50,4 +51,7 @@ program
     console.log('Export complete.');
   });
 
-program.parse(process.argv);
+program.parseAsync(process.argv).catch((error) => {
+  console.error(error);
+  process.exit(1);
+});

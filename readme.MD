@@ -1,28 +1,22 @@
 # Photo Gallery Auto-Organizer & Static Gallery Generator
 
-This project is a complete solution for photographers to automatically organize their photos by date and generate a beautiful, fast, and portable static web gallery.
-
-It consists of:
-
-- A **Node.js Backend & CLI** for ingesting files, processing metadata, generating thumbnails, and exporting the final site.
-- A **React Frontend** that provides the user interface for viewing the generated static gallery.
+A complete workflow for photographers to organize images by capture date, generate a polished static gallery, and deliver a portable export. The project now ships with a **modern control-center UI** so you can run the full pipeline without touching the CLI.
 
 ## Features
 
-- **Automated Organization**: Ingests local directories or ZIP files and sorts images into `/YYYY/MM/` folders based on EXIF date.
-- **Broad Format Support**: Handles JPEG, PNG, WEBP, and even complex formats like HEIC and RAW (`.CR2`, `.NEF`) via `exiftool` and `sharp`.
-- **Idempotent Processing**: Re-running an ingest only processes new or changed files, making updates fast and efficient.
-- **High-Quality Thumbnails**: Generates 200px WebP thumbnails (with JPEG fallbacks) for fast gallery loading.
-- **Modern Gallery UI**: A fully responsive gallery built with React and TailwindCSS, featuring a lightbox with keyboard and swipe navigation.
-- **Static Export**: Bundles the entire gallery (original images, thumbnails, HTML, CSS, JS) into a single folder or ZIP file, ready for deployment on any static host (Netlify, Vercel, GitHub Pages, etc.).
+- **Visual Pipeline Orchestration** – Launch ingestion, gallery builds, and exports from a three-step dashboard with live task feedback.
+- **Automated Organization** – Resolve EXIF capture dates, copy originals into `/YYYY/MM/`, and handle duplicates automatically.
+- **High-Speed Thumbnails** – Generate 200px WebP thumbnails (with JPEG fallbacks) while preserving orientation.
+- **Static Gallery Builder** – Produce a responsive gallery with pagination, lightbox UX, sitemap, and robots directives.
+- **Portable Exports** – Bundle the complete output into a ZIP ready for hand-off or static hosting.
 
 ## Tech Stack
 
-- **Monorepo**: npm Workspaces
-- **Backend & CLI**: Node.js, Express, Commander.js
+- **Backend & Pipeline**: Node.js, Express, Commander.js
 - **Image Processing**: `sharp`, `exiftool-vendored`
-- **Database**: `better-sqlite3` for metadata storage and idempotency.
-- **Frontend**: React, Vite, TailwindCSS
+- **Database**: `better-sqlite3`
+- **Frontend**: React + TailwindCSS (Vite)
+- **Task Streaming**: Server-Sent Events for real-time logs
 
 ## Getting Started
 
@@ -30,41 +24,60 @@ It consists of:
 
 - Node.js v18+
 - npm v8+
-- `exiftool` must be installed on your system. The `exiftool-vendored` library relies on it.
-  - **macOS**: `brew install exiftool`
-  - **Windows**: Download from the ExifTool website and ensure it's in your system's PATH.
+- `exiftool` installed and available on your system `PATH`  
+  - **macOS**: `brew install exiftool`  
+  - **Windows**: Download from the ExifTool site and add to `PATH`  
   - **Linux**: `sudo apt-get install libimage-exiftool-perl`
 
 ### Installation
 
-Clone the repository and run the installation script which installs root dependencies and dependencies for both the `server` and `web` workspaces.
-
 ```bash
 git clone <your-repo-url>
-cd gallery-maker-monorepo
-npm run install-all
+cd Gallery-Maker
+npm install
 ```
 
-### Usage (CLI)
+### Local Development
 
-The core functionality is exposed via a CLI. All paths should be absolute or relative to the project root.
+Run the dashboard and API together:
 
-1.  **Ingest & Process Files**:
-    This command finds images, reads their metadata, copies them to the export directory, and generates thumbnails.
+```bash
+npm run dev
+```
 
-    ```bash
-    node cli.js ingest --source /path/to/your/photos --export-root ./export
-    ```
+- UI: http://localhost:5173 – queue tasks, watch logs, and preview the gallery
+- API: http://localhost:3001 – serves pipeline endpoints and static previews
 
-2.  **Build the Static Site**:
-    This command uses the processed data to generate the `index.html`, month pages, and other site assets.
+### Pipeline Workflow (UI)
 
-    ```bash
-    node cli.js build-site --export-root ./export --paginate 200
-    ```
+1. **Ingest & Organize** – Point at a source directory and export root, then launch ingestion.
+2. **Build Static Gallery** – Use the same export root to generate the static site. The preview iframe refreshes automatically when the build finishes.
+3. **Export Archive** – Package everything into a shareable ZIP.
 
-3.  **Export as a ZIP file (Optional)**:
-    This command packages the entire contents of the `--export-root` directory into a single zip file.
-    ```bash
-    node cli.js export --export-root ./export --zip gallery.zip
-    ```
+The activity feed streams live logs from every stage, and the history panel records the last run of each task.
+
+### CLI (Optional)
+
+Prefer scripts? The CLI remains available:
+
+```bash
+node cli.js ingest --source /path/to/photos --export-root ./export
+node cli.js build-site --export-root ./export --paginate 200
+node cli.js export --export-root ./export --zip gallery.zip
+```
+
+## Production Build
+
+```bash
+npm run build:web
+```
+
+The Node server (`npm start`) serves the built dashboard (`dist/`) and continues to expose the pipeline API and preview assets.
+
+## Preview
+
+After a successful build, the static gallery is accessible via the dashboard preview and directly at `http://localhost:3001/preview/`.
+
+## License
+
+MIT
