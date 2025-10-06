@@ -1,82 +1,84 @@
 # Photo Gallery Auto-Organizer & Static Gallery Generator
 
-A complete workflow for photographers to organize images by capture date, generate a polished static gallery, and deliver a portable export. The project now ships with a **modern control-center UI** so you can run the full pipeline without touching the CLI.
+A complete workflow to organize photos by capture date, generate a polished static gallery, and deliver a portable export — now with a GUI control center and live task streaming.
 
 ## Features
 
-- **Visual Pipeline Orchestration** – Launch ingestion, gallery builds, and exports from a three-step dashboard with live task feedback.
-- **Automated Organization** – Resolve EXIF capture dates, copy originals into `/YYYY/MM/`, and handle duplicates automatically.
-- **High-Speed Thumbnails** – Generate 200px WebP thumbnails (with JPEG fallbacks) while preserving orientation.
-- **Static Gallery Builder** – Produce a responsive gallery with pagination, lightbox UX, sitemap, and robots directives.
-- **Portable Exports** – Bundle the complete output into a ZIP ready for hand-off or static hosting.
+- Visual pipeline orchestration (Ingest → Build → Export) with live logs
+- Date-aware organization into `/YYYY/MM/` with duplicate suffixes
+- High-quality 200px thumbnails (WebP + JPEG fallback)
+- Static gallery generation with metadata (`data.json`), `sitemap.xml`, and `robots.txt`
+- Preview the built gallery from the dashboard
+- Optional one-command ZIP export for delivery
 
-## Tech Stack
+## Architecture Overview
 
-- **Backend & Pipeline**: Node.js, Express, Commander.js
-- **Image Processing**: `sharp`, `exiftool-vendored`
-- **Database**: `better-sqlite3`
-- **Frontend**: React + TailwindCSS (Vite)
-- **Task Streaming**: Server-Sent Events for real-time logs
+- Frontend: React (Vite, Tailwind) dashboard at `http://localhost:5173`
+- Backend: Node/Express API at `http://localhost:3001` with Server-Sent Events
+- Processing: `sharp` (thumbnails), `exiftool-vendored` (metadata), `better-sqlite3` (idempotency)
+- Output layout under the Export Root:
+  - `/YYYY/MM/` — originals
+  - `/thumbs/YYYY/MM/` — thumbnails
+  - `/site/` — static gallery (copied from `dist/`) + `data.json`, `sitemap.xml`, `robots.txt`
+  - `/.meta/gallery.db` — SQLite database
 
-## Getting Started
-
-### Prerequisites
+## Prerequisites
 
 - Node.js v18+
 - npm v8+
-- `exiftool` installed and available on your system `PATH`  
-  - **macOS**: `brew install exiftool`  
-  - **Windows**: Download from the ExifTool site and add to `PATH`  
-  - **Linux**: `sudo apt-get install libimage-exiftool-perl`
+- ExifTool installed and available on PATH:
+  - Windows: Download from the ExifTool site and add to PATH
+  - macOS: `brew install exiftool`
+  - Linux: `sudo apt-get install libimage-exiftool-perl`
 
-### Installation
+## Quick Start
 
+1. Install dependencies
 ```bash
-git clone <your-repo-url>
-cd Gallery-Maker
 npm install
 ```
-
-### Local Development
-
-Run the dashboard and API together:
-
+2. Run the app (API + Dashboard)
 ```bash
 npm run dev
 ```
+3. Open the dashboard: http://localhost:5173
 
-- UI: http://localhost:5173 – queue tasks, watch logs, and preview the gallery
-- API: http://localhost:3001 – serves pipeline endpoints and static previews
+## Using the Dashboard
 
-### Pipeline Workflow (UI)
+1. Ingest & Organize
+   - Browse to choose the photo source folder
+   - Browse to set the Export Root (defaults to `./export`)
+   - Click “Launch Ingestion” and watch progress in the Activity Feed
+2. Build Static Gallery
+   - Click “Build Gallery” (auto-builds React if needed)
+   - When finished, the Gallery Preview panel loads `export/site/index.html`
+3. Export for Delivery (optional)
+   - Set the ZIP filename and click “Export Archive”
 
-1. **Ingest & Organize** – Point at a source directory and export root, then launch ingestion.
-2. **Build Static Gallery** – Use the same export root to generate the static site. The preview iframe refreshes automatically when the build finishes.
-3. **Export Archive** – Package everything into a shareable ZIP.
+Direct Gallery Access:
+- After a build, open `http://localhost:3001/preview/index.html` for a full-window view.
 
-The activity feed streams live logs from every stage, and the history panel records the last run of each task.
-
-### CLI (Optional)
-
-Prefer scripts? The CLI remains available:
-
+## CLI (Optional)
 ```bash
-node cli.js ingest --source /path/to/photos --export-root ./export
-node cli.js build-site --export-root ./export --paginate 200
-node cli.js export --export-root ./export --zip gallery.zip
+node cli.js ingest --source "D:/Photos" --export-root "D:/Output/Gallery"
+node cli.js build-site --export-root "D:/Output/Gallery" --paginate 200
+node cli.js export --export-root "D:/Output/Gallery" --zip "D:/Deliverables/gallery.zip"
 ```
 
-## Production Build
+## Troubleshooting
 
-```bash
-npm run build:web
-```
+- White screen when double-clicking `index.html`:
+  - Serve over HTTP (dashboard preview or any static server), not `file://`.
+- “React build not found … dist” during Build:
+  - The system now auto-runs `npm run build:web`. If it still fails, run it manually and retry.
+- Folder picker fails:
+  - Windows-only at the moment. On macOS/Linux, type paths manually or ask to enable OS-specific pickers.
 
-The Node server (`npm start`) serves the built dashboard (`dist/`) and continues to expose the pipeline API and preview assets.
+## Project Scripts
 
-## Preview
-
-After a successful build, the static gallery is accessible via the dashboard preview and directly at `http://localhost:3001/preview/`.
+- `npm run dev` — run API and dashboard together
+- `npm run build:web` — build the React app into `dist/`
+- `npm start` — serve the built dashboard (production) + API
 
 ## License
 

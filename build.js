@@ -1,5 +1,6 @@
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { spawn } from 'node:child_process';
 import fs from 'fs-extra';
 import { getDb } from './database.js';
 
@@ -24,17 +25,14 @@ export async function buildSite(exportRoot, paginate, logger = {}) {
   const { log, error } = { ...defaultLoggers, ...logger };
   log('Building static site...');
 
+  await ensureWebBuildReady(log, error);
+
   const sitePath = path.join(exportRoot, 'site');
   const db = getDb(exportRoot);
 
   // 1. Clear previous site build and copy new React app assets
   log('Copying React build assets...');
   await fs.emptyDir(sitePath);
-  if (!(await fs.pathExists(webBuildPath))) {
-    const message = `React build not found at ${webBuildPath}. Please run 'npm run build:web' first.`;
-    error(message);
-    throw new Error(message);
-  }
   await fs.copy(webBuildPath, sitePath);
 
   // 2. Generate data.json from the database
@@ -70,6 +68,57 @@ export async function buildSite(exportRoot, paginate, logger = {}) {
   await generateRobotsTxt(exportRoot);
 
   log('Static site build finished successfully.');
+}
+
+async function ensureWebBuildReady(log, error) {
+  if (await fs.pathExists(webBuildPath)) {
+    return;
+  }
+
+  log('React build not found. Running "npm run build:web" automatically...');
+  try {
+    await runCommand('npm', ['run', 'build:web'], log, error);
+  } catch (err) {
+    error(err.message || 'Running npm run build:web failed.');
+    throw new Error(`Failed to build React app automatically. Please run 'npm run build:web' manually.`, {
+      cause: err,
+    });
+  }
+
+  if (!(await fs.pathExists(webBuildPath))) {
+    throw new Error(`React build still not found at ${webBuildPath}. Please run 'npm run build:web' and retry.`);
+  }
+}
+
+function runCommand(command, args, log = defaultLoggers.log, error = defaultLoggers.error) {
+  return new Promise((resolve, reject) => {
+    const child = spawn(command, args, {
+      shell: true,
+      stdio: ['ignore', 'pipe', 'pipe'],
+    });
+
+    child.stdout.on('data', (data) => {
+      const text = data.toString().trim();
+      if (text) log(`[build:web] ${text}`);
+    });
+
+    child.stderr.on('data', (data) => {
+      const text = data.toString().trim();
+      if (text) error(`[build:web] ${text}`);
+    });
+
+    child.on('error', (err) => {
+      reject(err);
+    });
+
+    child.on('close', (code) => {
+      if (code === 0) {
+        resolve();
+      } else {
+        reject(new Error(`Command exited with code ${code}`));
+      }
+    });
+  });
 }
 
 /**
